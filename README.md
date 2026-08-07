@@ -3,23 +3,6 @@
 Project ini adalah versi pengembangan dari demo dasar Midtrans Snap, dengan tambahan
 konsep-konsep yang dipakai di project payment gateway sungguhan.
 
-## Yang baru dibanding versi awal
-
-1. **Key di `.env`**, tidak lagi hardcode di kode.
-2. **Harga produk ditentukan di server** (`PRODUCTS` di `server.js`), frontend cuma kirim `productId`.
-3. **Order disimpan** ke `data/orders.json` dengan status `pending` sejak awal dibuat.
-4. **Endpoint webhook `/notification`** — inti dari sistem payment yang aman. Server Midtrans
-   akan memanggil endpoint ini setiap kali status transaksi berubah, dan backend
-   memverifikasi signature-nya sebelum mempercayai datanya.
-5. **Endpoint `/order-status/:orderId`** untuk cek status order.
-6. **Log jelas per tahap proses** — setiap request masuk, transaksi dibuat, notifikasi
-   webhook diterima/diverifikasi, dan status di-update, semua tercetak di terminal dengan
-   timestamp dan tag (`[HTTP]`, `[CREATE-TX]`, `[WEBHOOK]`, `[STATUS]`, `[SERVER]`), supaya
-   gampang diikuti alurnya saat belajar/debug.
-7. **Frontend diperbarui**: tampilan lebih rapi (card, warna status: info/success/pending/error),
-   dan yang penting — **nama, email, nomor HP sekarang diinput lewat form**, tidak hardcode
-   `"Budi"` lagi di kode. Ada validasi sederhana di frontend maupun backend.
-
 ## Cara menjalankan
 
 ```bash
@@ -54,7 +37,7 @@ Ngrok akan kasih URL publik seperti `https://abcd1234.ngrok-free.app`. Lalu:
 Saat kamu jalankan `npm start` lalu buka aplikasi dan bayar, log di terminal akan urut kira-kira begini:
 
 ```
-[SERVER]    🚀 Server berjalan di http://localhost:3000
+[SERVER]    Server berjalan di http://localhost:3000
 [HTTP]      GET /products
 [HTTP]      POST /create-transaction
 [CREATE-TX] Permintaan transaksi masuk untuk productId="buku-belajar-node"
