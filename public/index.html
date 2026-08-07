@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo Payment Gateway - Midtrans</title>
+  <script
+    src="https://app.sandbox.midtrans.com/snap/snap.js"
+    data-client-key="PASTE_CLIENT_KEY_DI_SINI_JIKA_DIPERLUKAN"
+  ></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 480px;
+      margin: 48px auto;
+      padding: 0 20px;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    h2 { margin-top: 0; font-size: 20px; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-top: 16px;
+      margin-bottom: 6px;
+    }
+    select, input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 1px solid #d6d6d6;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    select:focus, input:focus { border-color: #4f46e5; }
+    input.invalid { border-color: #dc2626; }
+    .error-text { color: #dc2626; font-size: 12px; margin-top: 4px; display: none; }
+
+    .price-preview {
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: #f4f4ff;
+      border-radius: 8px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .price-preview strong { color: #4f46e5; }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: #4f46e5;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: #4338ca; }
+    button:disabled { background: #b8b8b8; cursor: not-allowed; }
+
+    #status {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    #status.info    { display: block; background: #eef2ff; color: #3730a3; }
+    #status.success { display: block; background: #ecfdf5; color: #065f46; }
+    #status.error   { display: block; background: #fef2f2; color: #991b1b; }
+    #status.pending { display: block; background: #fffbeb; color: #92400e; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Demo Pembayaran</h2>
+
+    <label for="product">Pilih produk</label>
+    <select id="product"></select>
+
+    <div class="price-preview">
+      <span>Total bayar</span>
+      <strong id="priceLabel">Rp0</strong>
+    </div>
+
+    <label for="name">Nama lengkap</label>
+    <input type="text" id="name" placeholder="Nama kamu" />
+    <div class="error-text" id="nameError">Nama wajib diisi</div>
+
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="email@contoh.com" />
+    <div class="error-text" id="emailError">Format email tidak valid</div>
+
+    <label for="phone">Nomor HP (opsional)</label>
+    <input type="tel" id="phone" placeholder="08xxxxxxxxxx" />
+
+    <button id="payBtn" onclick="bayar()">Bayar</button>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const productSelect = document.getElementById('product');
+    const priceLabel = document.getElementById('priceLabel');
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const phoneInput = document.getElementById('phone');
+    const nameError = document.getElementById('nameError');
+    const emailError = document.getElementById('emailError');
+    const payBtn = document.getElementById('payBtn');
+    const statusDiv = document.getElementById('status');
+
+    let products = {};
+    let currentOrderId = null;
+
+    function setStatus(type, message) {
+      statusDiv.className = type;
+      statusDiv.textContent = message;
+    }
+
+    function formatRupiah(num) {
+      return 'Rp' + num.toLocaleString('id-ID');
+    }
+
+    async function loadProducts() {
+      const res = await fetch('/products');
+      products = await res.json();
+      productSelect.innerHTML = Object.entries(products)
+        .map(([id, p]) => `<option value="${id}">${p.name}</option>`)
+        .join('');
+      updatePricePreview();
+    }
+    loadProducts();
+
+    productSelect.addEventListener('change', updatePricePreview);
+    function updatePricePreview() {
+      const p = products[productSelect.value];
+      priceLabel.textContent = p ? formatRupiah(p.price) : 'Rp0';
+    }
+
+    function validateForm() {
+      let valid = true;
+
+      if (!nameInput.value.trim()) {
+        nameInput.classList.add('invalid');
+        nameError.style.display = 'block';
+        valid = false;
+      } else {
+        nameInput.classList.remove('invalid');
+        nameError.style.display = 'none';
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailInput.value.trim())) {
+        emailInput.classList.add('invalid');
+        emailError.style.display = 'block';
+        valid = false;
+      } else {
+        emailInput.classList.remove('invalid');
+        emailError.style.display = 'none';
+      }
+
+      return valid;
+    }
+
+    async function bayar() {
+      if (!validateForm()) {
+        setStatus('error', 'Lengkapi dulu nama dan email dengan benar.');
+        return;
+      }
+
+      const productId = productSelect.value;
+      payBtn.disabled = true;
+      payBtn.textContent = 'Memproses...';
+      setStatus('info', 'Membuat transaksi...');
+
+      try {
+        const res = await fetch('/create-transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId,
+            customer: {
+              name: nameInput.value.trim(),
+              email: emailInput.value.trim(),
+              phone: phoneInput.value.trim(),
+            },
+          }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          setStatus('error', 'Gagal membuat transaksi: ' + data.error);
+          payBtn.disabled = false;
+          payBtn.textContent = 'Bayar';
+          return;
+        }
+
+        currentOrderId = data.orderId;
+        setStatus('info', 'Transaksi dibuat (' + data.orderId + '). Membuka popup pembayaran...');
+
+        snap.pay(data.token, {
+          onSuccess: () => {
+            setStatus('success', 'Pembayaran berhasil! Mengecek status final dari server...');
+            cekStatus();
+          },
+          onPending: () => {
+            setStatus('pending', 'Menunggu pembayaran... Status final akan dikonfirmasi lewat webhook.');
+          },
+          onError: () => {
+            setStatus('error', 'Pembayaran gagal.');
+            payBtn.disabled = false;
+            payBtn.textContent = 'Bayar';
+          },
+          onClose: () => {
+            setStatus('error', 'Popup ditutup sebelum pembayaran selesai.');
+            payBtn.disabled = false;
+            payBtn.textContent = 'Bayar';
+          },
+        });
+      } catch (err) {
+        setStatus('error', 'Terjadi kesalahan: ' + err.message);
+        payBtn.disabled = false;
+        payBtn.textContent = 'Bayar';
+      }
+    }
+
+    async function cekStatus() {
+      if (!currentOrderId) return;
+      setTimeout(async () => {
+        const res = await fetch('/order-status/' + currentOrderId);
+        const order = await res.json();
+        setStatus(
+          order.status === 'success' ? 'success' : 'pending',
+          `Order ${order.orderId}: status = ${order.status}`
+        );
+        payBtn.disabled = false;
+        payBtn.textContent = 'Bayar';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
